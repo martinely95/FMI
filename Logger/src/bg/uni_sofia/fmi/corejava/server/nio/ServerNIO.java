@@ -34,6 +34,7 @@ public class ServerNIO implements AutoCloseable {
 	private Selector selector;
 	private ByteBuffer echoBuffer;
 	private Logger logger;
+	private boolean shutDown = false;
 
 	public ServerNIO(int port, Logger logger) throws IOException {
 		// Create a new selector
@@ -57,8 +58,7 @@ public class ServerNIO implements AutoCloseable {
 	}
 
 	private void start() throws IOException {
-		long a = 0; 
-		while (a++<9) {
+		while (this.shutDown != true) {
 			int num = selector.select();
 			
 			if (num == 0) {
@@ -93,7 +93,7 @@ public class ServerNIO implements AutoCloseable {
 	
 	private void write(SelectionKey key) {
 		Message message = this.read(key);
-		this.lastKey = key;
+		this.lastKey = key; // TODO: not used
 		if (message!=null) {
 			this.write(message);
 		}
@@ -197,6 +197,9 @@ public class ServerNIO implements AutoCloseable {
 	private boolean write(Message message) {
         try {
 			logger.log(message.getContent(), message.getAuthor().toString());
+			if (message.getContent().equals("shut down")) {
+				this.shutDown = true;
+			}
 			//TODO: author
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
