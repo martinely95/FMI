@@ -78,14 +78,19 @@ public class Client {
 			while ((consoleInput = console.nextLine()) != null) {
 				
 				// Stop the client
-				if ("q".equalsIgnoreCase(consoleInput.trim())) {
+				if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
+					out.println(Utility.DISCONNECT_CLIENT);
+					out.flush();
 					System.out.println("Client stopped");
 					return;
 				}
 				// Send to the server
 				if (serverIsAvailable()) {
-					out.print(consoleInput);
-					out.flush();
+					int i = 0;
+//					for (; i < 100000; i++) {
+						out.print(consoleInput + Utility.NEW_LINE);  // 2. Комуникацията между сървъра и клиентите е текстова и базирна на редове, т.е. всеки един от участниците винаги праща цял ред.
+						out.flush();
+//					}
 					
 					// Read the response from the server
 					//String response = in.readLine();

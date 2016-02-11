@@ -94,7 +94,8 @@ public class ServerNIO implements AutoCloseable {
 	private void write(SelectionKey key) {
 		Message message = this.read(key);
 		this.lastKey = key; // TODO: not used
-		if (message!=null) {
+		if (message!=null && message.getContent()!=null) {
+			logClientMessageToConsole(message);
 			this.write(message);
 		}
 	}
@@ -141,7 +142,7 @@ public class ServerNIO implements AutoCloseable {
 					echoBuffer.position(),
 					echoBuffer.remaining());
 			
-			System.out.println("Client " + sc + " wrote " + numBytes + " " + message);
+			//System.out.println("Client " + sc + " wrote " + numBytes + " " + message);
 			return message;
 		} catch (IOException ioe) {
 			// The channel is broken. Close it and cancel the key
@@ -163,11 +164,19 @@ public class ServerNIO implements AutoCloseable {
 	 */
 	private Message read(SelectionKey key) {
 		if (key.attachment() == null) {
-			key.attach(new User(bareRead(key)));
+			String clientName = bareRead(key);
+			if (clientName!=null) {
+				System.out.println("Client " + clientName + " connected.");
+			}
+			key.attach(new User(clientName));
 			return null;
 		}
 		String message = bareRead(key);
 		return new Message((User)key.attachment(), message);
+	}
+	
+	private void logClientMessageToConsole(Message message) {
+		System.out.println("Client " + message.getAuthor() + " wrote: " + message.getContent());
 	}
 	
 	@SuppressWarnings("unused")
@@ -197,8 +206,13 @@ public class ServerNIO implements AutoCloseable {
 	private boolean write(Message message) {
         try {
 			logger.log(message.getContent(), message.getAuthor().toString());
-			if (message.getContent().equals("shut down")) {
+			if (message.getContent().trim().equals(Utility.SHUT_DOWN_SERVER)) {
+				System.out.println("Server is shutting down.");
 				this.shutDown = true;
+			}
+
+			if (message.getContent().trim().equals(Utility.DISCONNECT_CLIENT)) {
+				System.out.println("Client " + message.getAuthor() + " disconnected.");
 			}
 			//TODO: author
 		} catch (IOException e) {
