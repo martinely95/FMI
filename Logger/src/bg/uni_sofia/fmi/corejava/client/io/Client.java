@@ -3,9 +3,11 @@ package bg.uni_sofia.fmi.corejava.client.io;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.Scanner;
 
 import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
@@ -29,6 +31,11 @@ public class Client {
 	
 	private String remoteHost = null;
 	private int remotePort = 0;
+	private String myName;
+	
+	private Socket socket;
+	private PrintWriter out;
+	private Scanner console;
 	
 	/**
 	 * Initialize the client
@@ -36,9 +43,13 @@ public class Client {
 	 * @param host The host of the EchoServer
 	 * @param port The port of the EchoServer
 	 */
-	public Client(String host, int port) {
+	public Client(String host, int port, Socket socket, PrintWriter out, Scanner console) {
 		remoteHost = host;
 		remotePort = port;
+		myName = java.lang.management.ManagementFactory.getRuntimeMXBean().getName();
+		this.socket = socket;
+		this.out = out;
+		this.console = console;
 	}
 	
 	/**
@@ -71,38 +82,9 @@ public class Client {
 			//EchoReaderThread reader = new EchoReaderThread(socket);
 			//reader.setDaemon(true);
 			//reader.start();
-			out.print(java.lang.management.ManagementFactory.getRuntimeMXBean().getName());
-			out.flush();
+			sendMessage(out, this.myName, Utility.CLIENT_NAME_SENT + this.myName, false);
 			
-			String consoleInput = null;
-			while ((consoleInput = console.nextLine()) != null) {
-				
-				// Stop the client
-				if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
-					out.println(Utility.DISCONNECT_CLIENT);
-					out.flush();
-					System.out.println("Client stopped");
-					return;
-				}
-				// Send to the server
-				if (serverIsAvailable()) {
-					int i = 0;
-//					for (; i < 100000; i++) {
-						out.print(consoleInput + Utility.NEW_LINE);  // 2. Комуникацията между сървъра и клиентите е текстова и базирна на редове, т.е. всеки един от участниците винаги праща цял ред.
-						out.flush();
-//					}
-					
-					// Read the response from the server
-					//String response = in.readLine();
-					String response = "Message sent.";
-					
-					// Write to the end user
-					System.out.println(response);
-				}
-				else {
-					throw new ServerIsDownException("(Re)connection attempt: ", consoleInput);
-				}
-			}
+			startSendingMessages(console, out);
 		} catch (ServerIsDownException e) {
 			System.out.println(e.getMessage());
 			
@@ -112,11 +94,56 @@ public class Client {
 			e.printStackTrace();
 		}
 	}
+	
+	private void startSendingMessages(Scanner console, PrintWriter out) throws ServerIsDownException {
+		String consoleInput = null;
+		while ((consoleInput = console.nextLine()) != null) {
+			
+			// Stop the client
+			if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
+				sendMessage(out, Utility.DISCONNECT_CLIENT, Utility.CLIENT_STOPPED, true);
+				return;
+			}
+			// Send to the server
+			if (serverIsAvailable()) {
+				int i = 0;
+//				for (; i < 100000; i++) {
+					sendMessage(out, consoleInput, Utility.MESSAGE_SENT, true);
+//				}
+			}
+			else {
+				throw new ServerIsDownException("(Re)connection attempt: ", consoleInput);
+			}
+		}
+	}
+	
+	private void sendMessage(PrintWriter out, String consoleInput, String logToConsole, boolean addNewLine) {
+		if (addNewLine) {
+			consoleInput += Utility.NEW_LINE;
+		}
+		out.print(consoleInput);
+		out.flush();
+		System.out.println(logToConsole);
+	}
 
 	
 	public static void main(String[] args) throws InterruptedException {
-		Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT);
-		ec.start();
+		InputStream source = System.in;
+		try (Socket socket = new Socket(Utility.SERVER_NAME, Utility.SERVER_PORT);
+				//BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())); // 4etem ot tuk
+				PrintWriter out = new PrintWriter(socket.getOutputStream()); // pi6em tuk
+				//File file = new File("source.txt"); TODO
+				Scanner console = new Scanner(source);
+				){
+			Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console);
+			ec.start();
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 }

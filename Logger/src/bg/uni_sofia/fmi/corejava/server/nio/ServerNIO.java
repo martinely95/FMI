@@ -91,6 +91,10 @@ public class ServerNIO implements AutoCloseable {
 		}
 	}
 	
+	private void stop() {
+		this.shutDown = true;
+	}
+	
 	private void write(SelectionKey key) {
 		Message message = this.read(key);
 		this.lastKey = key; // TODO: not used
@@ -208,7 +212,7 @@ public class ServerNIO implements AutoCloseable {
 			logger.log(message.getContent(), message.getAuthor().toString());
 			if (message.getContent().trim().equals(Utility.SHUT_DOWN_SERVER)) {
 				System.out.println("Server is shutting down.");
-				this.shutDown = true;
+				this.stop();
 			}
 
 			if (message.getContent().trim().equals(Utility.DISCONNECT_CLIENT)) {
