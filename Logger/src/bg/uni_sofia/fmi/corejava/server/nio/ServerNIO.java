@@ -8,13 +8,12 @@ import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Iterator;
 import java.util.Set;
 
 import bg.uni_sofia.fmi.corejava.logger.Logger;
 import bg.uni_sofia.fmi.corejava.logger.LoggerWithArchival;
+import bg.uni_sofia.fmi.corejava.stuff.Constants;
 import bg.uni_sofia.fmi.corejava.stuff.MessageTransaction;
 import bg.uni_sofia.fmi.corejava.stuff.User;
 import bg.uni_sofia.fmi.corejava.stuff.Utility;
@@ -30,7 +29,7 @@ public class ServerNIO implements AutoCloseable {
 	
 	//public static final int SERVER_PORT = 4444;
 	
-	private SelectionKey lastKey;
+	//private SelectionKey lastKey;  // consequently reading
 	private Selector selector;
 	private ByteBuffer echoBuffer;
 	private Logger logger;
@@ -49,7 +48,7 @@ public class ServerNIO implements AutoCloseable {
 
 		ssc.register(selector, SelectionKey.OP_ACCEPT);
 		
-		echoBuffer = ByteBuffer.allocate(1024);
+		echoBuffer = ByteBuffer.allocate(Constants.BUFFER_SIZE);
 
 		System.out.println("EchoServer NIO listening on port " + port);
 		
@@ -115,7 +114,7 @@ public class ServerNIO implements AutoCloseable {
 	
 	private void write(SelectionKey key) {
 		MessageTransaction message = this.read(key);
-		this.lastKey = key; // TODO: not used
+//		this.lastKey = key; // TODO: not used
 		if (message!=null && message.getContent()!=null) {
 			//logClientMessageToConsole(message);
 			this.write(message);
@@ -159,24 +158,35 @@ public class ServerNIO implements AutoCloseable {
 	private String bareRead(SelectionKey key) {
 		SocketChannel sc = (SocketChannel) key.channel();
 		try {
-			// Echo data
-			echoBuffer.clear();  // pos = 0; pos is the positioon in the buffer from where we start reading
-			int numBytes = sc.read(echoBuffer);  // puts the content from the channel into the buffer
-			if (numBytes == -1) {  // TODO: extract as a constant
-				// The channel is broken. Close it and cancel the key
-				throw new IOException("Broken channel");
+			boolean read = false;
+			StringBuilder message = new StringBuilder();
+			while (!read) {
+				// Echo data
+				echoBuffer.clear();  // pos = 0; pos is the positioon in the buffer from where we start reading
+				int numBytes = sc.read(echoBuffer);  // puts the content from the channel into the buffer
+				if (numBytes == -1) {  // TODO: extract as a constant
+					// The channel is broken. Close it and cancel the key
+					throw new IOException("Broken channel");
+				}
+
+				echoBuffer.flip();  // finds the limit of the data that was read
+
+				//sc.write(echoBuffer);  // reads from the buffer from the pos to the limit
+				//String message = new String(echoBuffer.array());
+				
+				message.append(new String(echoBuffer.array(),
+									echoBuffer.position(),
+									echoBuffer.remaining()
+									)
+						);
+				
+				if (numBytes < Constants.BUFFER_SIZE) {
+					read = true;
+				}
 			}
-
-			echoBuffer.flip();  // finds the limit of the data that was read
-
-			//sc.write(echoBuffer);  // reads from the buffer from the pos to the limit
-			//String message = new String(echoBuffer.array());
-			String message = new String(echoBuffer.array(),
-					echoBuffer.position(),
-					echoBuffer.remaining());
 			
 			//System.out.println("Client " + sc + " wrote " + numBytes + " " + message);
-			return message;
+			return message.toString();
 		} catch (IOException ioe) {
 			// The channel is broken. Close it and cancel the key
 			try {
@@ -191,21 +201,21 @@ public class ServerNIO implements AutoCloseable {
 	}
 	
 	private String[] splitMessages(String message) {
-		return message.split(Utility.NEW_LINE);
+		return message.split(Constants.NEW_LINE);
 	}
 	
-	@Deprecated
-	private boolean write(String message) {
-        try {
-			logger.log(message);
-			//TODO: author
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-			return false;
-		}
-        return true;
-	}
+//	@Deprecated
+//	private boolean write(String message) {
+//        try {
+//			logger.log(message);
+//			//TODO: author
+//		} catch (IOException e) {
+//			// TODO Auto-generated catch block
+//			e.printStackTrace();
+//			return false;
+//		}
+//        return true;
+//	}
 
 	private boolean write(MessageTransaction messages) {
         try {
@@ -214,11 +224,11 @@ public class ServerNIO implements AutoCloseable {
         		
         		logClientMessageToConsole(messages.getAuthor(), message);
         		
-    			if (message.equals(Utility.DISCONNECT_CLIENT)) {
+    			if (message.equals(Constants.DISCONNECT_CLIENT)) {
     				System.out.println("Client " + messages.getAuthor() + " disconnected.");
     			}
     			
-    			if (message.trim().equals(Utility.SHUT_DOWN_SERVER)) {
+    			if (message.trim().equals(Constants.SHUT_DOWN_SERVER)) {
     				System.out.println("Server is shutting down.");
     				this.stop();
     				break;
@@ -251,12 +261,13 @@ public class ServerNIO implements AutoCloseable {
 	}
 
 	public static void main(String args[]) throws Exception {
-		try (Logger logger = new LoggerWithArchival(Utility.LOG_FILE, Utility.ARCHIVE_FILE);
-				ServerNIO es = new ServerNIO(Utility.SERVER_PORT, logger)) {
+		try (Logger logger = new LoggerWithArchival(Constants.LOG_FILE, Constants.ARCHIVE_FILE);
+				ServerNIO es = new ServerNIO(Constants.SERVER_PORT, logger)) {
 			es.start();
 		} catch (Exception e) {
 			System.out.println("An error has occured");
 			e.printStackTrace();
+			Utility.callStackOverflowForHelp(e);
 		}
 	}
 }

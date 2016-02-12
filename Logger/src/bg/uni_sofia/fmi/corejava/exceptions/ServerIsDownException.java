@@ -8,12 +8,12 @@ public class ServerIsDownException extends IOException {
 	 * wtf?
 	 */
 	private static final long serialVersionUID = 1L;
-	private String messageToSend;
+	private String messageToSend;  // this is the accumulated message so far
 	private static final AtomicLong sequenceNumber
     = new AtomicLong(0);
 	
-	public static AtomicLong getSequencenumber() {
-		return sequenceNumber;
+	public static long getSequencenumber() {
+		return sequenceNumber.getAndIncrement();
 	}
 
 	public String getMessageToSend() {

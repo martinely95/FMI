@@ -1,22 +1,16 @@
 package bg.uni_sofia.fmi.corejava.client.io;
 
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.nio.file.Files;
 import java.util.Scanner;
 
-import javax.rmi.CORBA.Util;
 
 import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
-//import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
+import bg.uni_sofia.fmi.corejava.stuff.Constants;
 import bg.uni_sofia.fmi.corejava.stuff.Utility;
 
 
@@ -79,7 +73,7 @@ public class Client {
 	 * check if server is down
 	 */
 	public static boolean serverIsAvailable() { 
-	    try (Socket s = new Socket(Utility.SERVER_NAME, Utility.SERVER_PORT)) {
+	    try (Socket s = new Socket(Constants.SERVER_NAME, Constants.SERVER_PORT)) {
 	        return true;
 	    } catch (IOException ex) {
 	        /* ignore */
@@ -99,12 +93,12 @@ public class Client {
 			//EchoReaderThread reader = new EchoReaderThread(socket);
 			//reader.setDaemon(true);
 			//reader.start();
-			sendMessage(out, this.myName, Utility.CLIENT_NAME_SENT + this.myName, false);
+			sendMessage(out, this.myName, Constants.CLIENT_NAME_SENT + this.myName, false);
 			
 			continueSendingMessages();
 			
 		} catch (ServerIsDownException e) {
-			if (!retryConnection()) {
+			if (!retryConnection(e)) {
 				throw e;
 			} else {
 				start();
@@ -120,25 +114,26 @@ public class Client {
 		}
 	}
 	
-	private boolean retryConnection() {
-		for (int i = 0; i < Utility.NUMBER_OF_RETRIES; i++) {
+	private boolean retryConnection(ServerIsDownException e2) {
+		for (int i = 0; i < Constants.NUMBER_OF_RETRIES; i++) {
 			try {
 				Thread.sleep(1000);
-			} catch (InterruptedException e1) {
+			} catch (InterruptedException e) {
 				// TODO Auto-generated catch block
-				e1.printStackTrace();
+				e.printStackTrace();
 			}
 			 try {
 				this.socket = new Socket(this.remoteHost, this.remotePort);
 				this.out = new PrintWriter(this.socket.getOutputStream());
 				return true;
-			} catch (ServerIsDownException e) {
+			} catch (UnknownHostException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();
-				System.out.println(e.getMessage() + ServerIsDownException.getSequencenumber());
+				
 			} catch (IOException e) {
 				// TODO Auto-generated catch block
 				//e.printStackTrace();
+				System.out.println(Constants.RECONNECTION_MESSAGE + ServerIsDownException.getSequencenumber());
 			}
 
 		}
@@ -162,26 +157,26 @@ public class Client {
 
 	private void readAndSendMessage(PrintWriter out, String consoleInput) throws ServerIsDownException {
 		// Stop the client
-		if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
-			sendMessage(out, Utility.DISCONNECT_CLIENT, Utility.CLIENT_STOPPED, true);
+		if (Constants.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
+			sendMessage(out, Constants.DISCONNECT_CLIENT, Constants.CLIENT_STOPPED, true);
 			this.quit = true;
 			return;
 		}
 		// Send to the server
 		if (serverIsAvailable()) {
-			//int i = 0;
+//			int i = 0;
 //				for (; i < 100000; i++) {
-				sendMessage(out, consoleInput, Utility.MESSAGE_SENT, true);
+				sendMessage(out, consoleInput, Constants.MESSAGE_SENT, true);
 //				}
 		}
 		else {
-			throw new ServerIsDownException("(Re)connection attempt: ", consoleInput);
+			throw new ServerIsDownException(Constants.RECONNECTION_MESSAGE, consoleInput);
 		}
 	}
 	
 	private void sendMessage(PrintWriter out, String consoleInput, String logToConsole, boolean addNewLine) {
 		if (addNewLine) {
-			consoleInput += Utility.NEW_LINE;
+			consoleInput += Constants.NEW_LINE;
 		}
 		out.print(consoleInput);
 		out.flush();
@@ -192,22 +187,24 @@ public class Client {
 	public static void main(String[] args) throws InterruptedException {
 		InputStream source = System.in;
 //		File source = null;
-//		source = new File(Utility.CLIENT_SOURCE_FILE.toString());
-		try (Socket socket = new Socket(Utility.SERVER_NAME, Utility.SERVER_PORT);
+//		source = new File(Constants.CLIENT_SOURCE_FILE.toString());
+		try (Socket socket = new Socket(Constants.SERVER_NAME, Constants.SERVER_PORT);
 				PrintWriter out = new PrintWriter(socket.getOutputStream()); // pi6em tuk
 				Scanner console = new Scanner(source);
 				){
-			//Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console);
-			Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console, true);
+			Client ec = new Client(Constants.SERVER_NAME, Constants.SERVER_PORT, socket, out, console);
+//			Client ec = new Client(Constants.SERVER_NAME, Constants.SERVER_PORT, socket, out, console, true);
 			System.out.println("Client " + socket + " connected to server");
 
 			ec.start();
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			Utility.callStackOverflowForHelp(e);
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
+			Utility.callStackOverflowForHelp(e);
 		}
 	}
 
