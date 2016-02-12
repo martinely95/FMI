@@ -1,8 +1,8 @@
 package bg.uni_sofia.fmi.corejava.stuff;
 
-public class Message {
+public class MessageTransaction {
 	User author;
-	String content;
+	String[] content;
 	
 	public User getAuthor() {
 		return author;
@@ -12,15 +12,15 @@ public class Message {
 		this.author = author;
 	}
 
-	public String getContent() {
+	public String[] getContent() {
 		return content;
 	}
 
-	public void setContent(String content) {
+	public void setContent(String[] content) {
 		this.content = content;
 	}
 
-	public Message(User author, String content) {
+	public MessageTransaction(User author, String[] content) {
 		this.author = author;
 		this.content = content;
 	}

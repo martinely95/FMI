@@ -2,12 +2,15 @@ package bg.uni_sofia.fmi.corejava.client.io;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
+import java.nio.file.Files;
 import java.util.Scanner;
 
 import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
@@ -37,6 +40,16 @@ public class Client {
 	private PrintWriter out;
 	private Scanner console;
 	
+	private boolean readingFromFile;
+	
+	public boolean isReadingFromFile() {
+		return readingFromFile;
+	}
+
+	private void setReadingFromFile(boolean readingFromFile) {
+		this.readingFromFile = readingFromFile;
+	}
+
 	/**
 	 * Initialize the client
 	 * 
@@ -50,6 +63,12 @@ public class Client {
 		this.socket = socket;
 		this.out = out;
 		this.console = console;
+		this.setReadingFromFile(false);
+	}
+	
+	public Client(String host, int port, Socket socket, PrintWriter out, Scanner console, boolean readingFromFile) {
+		this( host,  port,  socket,  out,  console);
+		this.setReadingFromFile(readingFromFile);
 	}
 	
 	/**
@@ -69,13 +88,7 @@ public class Client {
 	 * @throws InterruptedException 
 	 */
 	public void start() throws InterruptedException {
-			
-		try (Socket socket = new Socket(remoteHost, remotePort);
-				//BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())); // 4etem ot tuk
-				PrintWriter out = new PrintWriter(socket.getOutputStream()); // pi6em tuk
-				//File file = new File("source.txt"); TODO
-				Scanner console = new Scanner(System.in);
-				) {
+		try {
 			System.out.println("Client " + socket + " connected to server");
 
 			// Start a separate thread for reading the response from the server
@@ -84,36 +97,49 @@ public class Client {
 			//reader.start();
 			sendMessage(out, this.myName, Utility.CLIENT_NAME_SENT + this.myName, false);
 			
-			startSendingMessages(console, out);
+			if (this.isReadingFromFile()) {
+				startSendingMessagesFromFile(console, out);
+			} else {
+				startSendingMessagesFromConsole(console, out);
+			}
+			
 		} catch (ServerIsDownException e) {
 			System.out.println(e.getMessage());
 			
 		} 
-		catch (IOException e) {
-			System.err.println("An error has occured. " + e.getMessage());
-			e.printStackTrace();
-		}
 	}
 	
-	private void startSendingMessages(Scanner console, PrintWriter out) throws ServerIsDownException {
+	private void startSendingMessagesFromConsole(Scanner console, PrintWriter out) throws ServerIsDownException {
 		String consoleInput = null;
 		while ((consoleInput = console.nextLine()) != null) {
 			
-			// Stop the client
-			if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
-				sendMessage(out, Utility.DISCONNECT_CLIENT, Utility.CLIENT_STOPPED, true);
-				return;
-			}
-			// Send to the server
-			if (serverIsAvailable()) {
-				int i = 0;
+			readAndSendMessage(out, consoleInput);
+		}
+	}
+	
+	private void startSendingMessagesFromFile(Scanner console, PrintWriter out) throws ServerIsDownException {
+		String consoleInput = null;
+		while (console.hasNextLine()) {
+			consoleInput = console.nextLine();
+			readAndSendMessage(out, consoleInput);
+		}
+	}
+
+	private void readAndSendMessage(PrintWriter out, String consoleInput) throws ServerIsDownException {
+		// Stop the client
+		if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
+			sendMessage(out, Utility.DISCONNECT_CLIENT, Utility.CLIENT_STOPPED, true);
+			return;
+		}
+		// Send to the server
+		if (serverIsAvailable()) {
+			//int i = 0;
 //				for (; i < 100000; i++) {
-					sendMessage(out, consoleInput, Utility.MESSAGE_SENT, true);
+				sendMessage(out, consoleInput, Utility.MESSAGE_SENT, true);
 //				}
-			}
-			else {
-				throw new ServerIsDownException("(Re)connection attempt: ", consoleInput);
-			}
+		}
+		else {
+			throw new ServerIsDownException("(Re)connection attempt: ", consoleInput);
 		}
 	}
 	
@@ -128,14 +154,25 @@ public class Client {
 
 	
 	public static void main(String[] args) throws InterruptedException {
-		InputStream source = System.in;
+		//TODO: read from file
+		//InputStream source = System.in;
+		//InputStream source = null;
+		File source = null;
+		try {
+			Files.createDirectories(Utility.CLIENT_SOURCE_FILE.getParent());
+		} catch (IOException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+		source = new File(Utility.CLIENT_SOURCE_FILE.toString());
 		try (Socket socket = new Socket(Utility.SERVER_NAME, Utility.SERVER_PORT);
 				//BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())); // 4etem ot tuk
 				PrintWriter out = new PrintWriter(socket.getOutputStream()); // pi6em tuk
 				//File file = new File("source.txt"); TODO
 				Scanner console = new Scanner(source);
 				){
-			Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console);
+			//Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console);
+			Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console, true);
 			ec.start();
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block

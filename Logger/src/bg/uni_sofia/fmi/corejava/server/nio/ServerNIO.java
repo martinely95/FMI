@@ -15,7 +15,7 @@ import java.util.Set;
 
 import bg.uni_sofia.fmi.corejava.logger.Logger;
 import bg.uni_sofia.fmi.corejava.logger.LoggerWithArchival;
-import bg.uni_sofia.fmi.corejava.stuff.Message;
+import bg.uni_sofia.fmi.corejava.stuff.MessageTransaction;
 import bg.uni_sofia.fmi.corejava.stuff.User;
 import bg.uni_sofia.fmi.corejava.stuff.Utility;
 
@@ -94,16 +94,8 @@ public class ServerNIO implements AutoCloseable {
 	private void stop() {
 		this.shutDown = true;
 	}
-	
-	private void write(SelectionKey key) {
-		Message message = this.read(key);
-		this.lastKey = key; // TODO: not used
-		if (message!=null && message.getContent()!=null) {
-			logClientMessageToConsole(message);
-			this.write(message);
-		}
-	}
-	
+
+
 	/**
 	 * Accept a new connection
 	 * 
@@ -119,13 +111,35 @@ public class ServerNIO implements AutoCloseable {
 
 		// Add the new connection to the selector
 		sc.register(selector, SelectionKey.OP_READ);
-
-//		System.out.println("Client " + sc + " connected");
-		
-
-
 	}
 	
+	private void write(SelectionKey key) {
+		MessageTransaction message = this.read(key);
+		this.lastKey = key; // TODO: not used
+		if (message!=null && message.getContent()!=null) {
+			//logClientMessageToConsole(message);
+			this.write(message);
+		}
+	}
+
+	/**
+	 * Read data from a connection
+	 * 
+	 * @param key The key for which a data was received
+	 */
+	private MessageTransaction read(SelectionKey key) {
+		if (key.attachment() == null) {
+			String clientName = bareRead(key);
+			if (clientName!=null) {
+				System.out.println("Client " + clientName + " connected.");
+			}
+			key.attach(new User(clientName));
+			return null;
+		}
+		String[] messages = splitMessages(bareRead(key));
+		return new MessageTransaction((User)key.attachment(), messages);
+	}
+
 	@Deprecated
 	private String bareRead(SelectionKey key) {
 		SocketChannel sc = (SocketChannel) key.channel();
@@ -161,38 +175,9 @@ public class ServerNIO implements AutoCloseable {
 		}
 	}
 	
-	/**
-	 * Read data from a connection
-	 * 
-	 * @param key The key for which a data was received
-	 */
-	private Message read(SelectionKey key) {
-		if (key.attachment() == null) {
-			String clientName = bareRead(key);
-			if (clientName!=null) {
-				System.out.println("Client " + clientName + " connected.");
-			}
-			key.attach(new User(clientName));
-			return null;
-		}
-		String message = bareRead(key);
-		return new Message((User)key.attachment(), message);
+	private String[] splitMessages(String message) {
+		return message.split(Utility.NEW_LINE);
 	}
-	
-	private void logClientMessageToConsole(Message message) {
-		System.out.println("Client " + message.getAuthor() + " wrote: " + message.getContent());
-	}
-	
-	@SuppressWarnings("unused")
-	private static void reset()
-	        throws IOException
-    {
-        Files.deleteIfExists(Utility.LOG_FILE);
-        Files.deleteIfExists(Utility.ARCHIVE_FILE);
-        //Files.deleteIfExists(Paths.get(Utility.LOG_FILE.toString() + ".idx"));
-        Files.createDirectories(Utility.LOG_FILE.getParent());
-        Files.createDirectories(Utility.ARCHIVE_FILE.getParent());
-    }
 	
 	@Deprecated
 	private boolean write(String message) {
@@ -206,25 +191,36 @@ public class ServerNIO implements AutoCloseable {
 		}
         return true;
 	}
-	
-	private boolean write(Message message) {
-        try {
-			logger.log(message.getContent(), message.getAuthor().toString());
-			if (message.getContent().trim().equals(Utility.SHUT_DOWN_SERVER)) {
-				System.out.println("Server is shutting down.");
-				this.stop();
-			}
 
-			if (message.getContent().trim().equals(Utility.DISCONNECT_CLIENT)) {
-				System.out.println("Client " + message.getAuthor() + " disconnected.");
+	private boolean write(MessageTransaction messages) {
+        try {
+        	for (String message : messages.getContent()) {
+        		logger.log(message, messages.getAuthor().toString());
+        		
+        		logClientMessageToConsole(messages.getAuthor(), message);
+        		
+    			if (message.equals(Utility.DISCONNECT_CLIENT)) {
+    				System.out.println("Client " + messages.getAuthor() + " disconnected.");
+    			}
+    			
+    			if (message.trim().equals(Utility.SHUT_DOWN_SERVER)) {
+    				System.out.println("Server is shutting down.");
+    				this.stop();
+    				break;
+    			}
+    			//TODO: author
 			}
-			//TODO: author
+			
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 			return false;
 		}
         return true;
+	}
+
+	private void logClientMessageToConsole(User author, String message) {
+		System.out.println("Client " + author + " wrote: " + message);
 	}
 	
 	@Override

@@ -1,7 +1,9 @@
 package bg.uni_sofia.fmi.corejava.stuff;
 
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -13,7 +15,7 @@ public class Utility {
 	 */
 	public static final int SERVER_PORT = 10514;
 	public static final String LOCALHOST = "localhost";
-	public static final String SERVER_NAME = "192.168.0.102";
+	public static final String SERVER_NAME = "192.168.0.100";
 	
 	public static final String NEW_LINE = "\n";
 	public static final String SHUT_DOWN_SERVER = "shut down";
@@ -29,6 +31,16 @@ public class Utility {
 	
 	public static final Path LOG_FILE = Paths.get("logs", "current.log");
     public static final Path ARCHIVE_FILE = Paths.get("logs", "archive.zip");
+    public static final Path CLIENT_SOURCE_FILE = Paths.get("Text files", "clientSource.txt");
+    
+	
+    public static void resetFiles(Path logFile, Path archiveFile) throws IOException {
+        Files.deleteIfExists(logFile);
+        Files.deleteIfExists(archiveFile);
+        //Files.deleteIfExists(Paths.get(Utility.LOG_FILE.toString() + ".idx"));
+        Files.createDirectories(logFile.getParent());
+        Files.createDirectories(archiveFile.getParent());
+    }
     
     public static void reflectionCall(Object classInstance, Class cls, String methodName) throws NullPointerException{
     	Method method = null;
