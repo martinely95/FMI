@@ -1,6 +1,7 @@
 package bg.uni_sofia.fmi.corejava.exceptions;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class ServerIsDownException extends IOException {
     /**
@@ -8,7 +9,13 @@ public class ServerIsDownException extends IOException {
 	 */
 	private static final long serialVersionUID = 1L;
 	private String messageToSend;
+	private static final AtomicLong sequenceNumber
+    = new AtomicLong(0);
 	
+	public static AtomicLong getSequencenumber() {
+		return sequenceNumber;
+	}
+
 	public String getMessageToSend() {
 		return messageToSend;
 	}
@@ -19,22 +26,27 @@ public class ServerIsDownException extends IOException {
 
 	public ServerIsDownException() {
         super();
+        sequenceNumber.getAndIncrement();
     }
 	
 	public ServerIsDownException(String message) {
         super(message);
+        sequenceNumber.getAndIncrement();
     }
 	
 	public ServerIsDownException(String message, String messageToSend) {
         super(message);
         this.messageToSend = messageToSend;
+        sequenceNumber.getAndIncrement();
     }
 
     public ServerIsDownException(Throwable cause) {
         super(cause);
+        sequenceNumber.getAndIncrement();
     }
 
     public ServerIsDownException(String message, Throwable cause) {
         super(message, cause);
+        sequenceNumber.getAndIncrement();
     }
 }

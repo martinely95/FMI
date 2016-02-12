@@ -128,16 +128,31 @@ public class ServerNIO implements AutoCloseable {
 	 * @param key The key for which a data was received
 	 */
 	private MessageTransaction read(SelectionKey key) {
-		if (key.attachment() == null) {
-			String clientName = bareRead(key);
+		MessageTransaction mt = null;
+		String fullMessage = bareRead(key);
+
+		String[] messages = null;
+		if (fullMessage != null) {
+			messages = splitMessages(fullMessage);
+		}
+		
+		User user = null;
+		user = (User)key.attachment();
+		if (user == null && messages != null) {
+			
+			String clientName = messages[0];
 			if (clientName!=null) {
 				System.out.println("Client " + clientName + " connected.");
+				user = new User(clientName);
+				key.attach(user);
 			}
-			key.attach(new User(clientName));
-			return null;
 		}
-		String[] messages = splitMessages(bareRead(key));
-		return new MessageTransaction((User)key.attachment(), messages);
+		
+		if (messages != null) {
+			mt = new MessageTransaction(user, messages);
+		}
+		
+		return mt;
 	}
 
 	@Deprecated

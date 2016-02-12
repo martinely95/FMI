@@ -20,9 +20,7 @@ public class Utility {
 	public static final String NEW_LINE = "\n";
 	public static final String SHUT_DOWN_SERVER = "shut down";
 	public static final String DISCONNECT_CLIENT = "q";
-
 	public static final String SERVER_NICKNAME = "Server";
-	
 
     public static final String MESSAGE_SENT = "Message sent.";
     public static final String CLIENT_STOPPED = "Client stopped.";
@@ -32,6 +30,8 @@ public class Utility {
 	public static final Path LOG_FILE = Paths.get("logs", "current.log");
     public static final Path ARCHIVE_FILE = Paths.get("logs", "archive.zip");
     public static final Path CLIENT_SOURCE_FILE = Paths.get("Text files", "clientSource.txt");
+    
+    public static final int NUMBER_OF_RETRIES = 20;
     
 	
     public static void resetFiles(Path logFile, Path archiveFile) throws IOException {

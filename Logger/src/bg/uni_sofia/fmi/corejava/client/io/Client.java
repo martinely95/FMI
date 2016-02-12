@@ -13,6 +13,8 @@ import java.net.UnknownHostException;
 import java.nio.file.Files;
 import java.util.Scanner;
 
+import javax.rmi.CORBA.Util;
+
 import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
 //import bg.uni_sofia.fmi.corejava.exceptions.ServerIsDownException;
 import bg.uni_sofia.fmi.corejava.stuff.Utility;
@@ -31,6 +33,8 @@ import bg.uni_sofia.fmi.corejava.stuff.Utility;
  *
  */
 public class Client {
+	
+	private boolean quit = false;
 	
 	private String remoteHost = null;
 	private int remotePort = 0;
@@ -86,40 +90,71 @@ public class Client {
 	/**
 	 * Start the client.
 	 * @throws InterruptedException 
+	 * @throws ServerIsDownException 
 	 */
-	public void start() throws InterruptedException {
+	public void start() throws InterruptedException, ServerIsDownException {
+		
 		try {
-			System.out.println("Client " + socket + " connected to server");
-
 			// Start a separate thread for reading the response from the server
 			//EchoReaderThread reader = new EchoReaderThread(socket);
 			//reader.setDaemon(true);
 			//reader.start();
 			sendMessage(out, this.myName, Utility.CLIENT_NAME_SENT + this.myName, false);
 			
-			if (this.isReadingFromFile()) {
-				startSendingMessagesFromFile(console, out);
-			} else {
-				startSendingMessagesFromConsole(console, out);
-			}
+			continueSendingMessages();
 			
 		} catch (ServerIsDownException e) {
-			System.out.println(e.getMessage());
-			
+			if (!retryConnection()) {
+				throw e;
+			} else {
+				start();
+			}
 		} 
 	}
+
+	private void continueSendingMessages() throws ServerIsDownException {
+		if (this.isReadingFromFile()) {
+			startSendingMessagesFromFile(console, out);
+		} else {
+			startSendingMessagesFromConsole(console, out);
+		}
+	}
 	
+	private boolean retryConnection() {
+		for (int i = 0; i < Utility.NUMBER_OF_RETRIES; i++) {
+			try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e1) {
+				// TODO Auto-generated catch block
+				e1.printStackTrace();
+			}
+			 try {
+				this.socket = new Socket(this.remoteHost, this.remotePort);
+				this.out = new PrintWriter(this.socket.getOutputStream());
+				return true;
+			} catch (ServerIsDownException e) {
+				// TODO Auto-generated catch block
+				//e.printStackTrace();
+				System.out.println(e.getMessage() + ServerIsDownException.getSequencenumber());
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				//e.printStackTrace();
+			}
+
+		}
+		return false;
+	}
+
 	private void startSendingMessagesFromConsole(Scanner console, PrintWriter out) throws ServerIsDownException {
 		String consoleInput = null;
-		while ((consoleInput = console.nextLine()) != null) {
-			
+		while (!this.quit && ((consoleInput = console.nextLine()) != null)) {
 			readAndSendMessage(out, consoleInput);
 		}
 	}
 	
 	private void startSendingMessagesFromFile(Scanner console, PrintWriter out) throws ServerIsDownException {
 		String consoleInput = null;
-		while (console.hasNextLine()) {
+		while (!this.quit && (console.hasNextLine())) {
 			consoleInput = console.nextLine();
 			readAndSendMessage(out, consoleInput);
 		}
@@ -129,6 +164,7 @@ public class Client {
 		// Stop the client
 		if (Utility.DISCONNECT_CLIENT.equalsIgnoreCase(consoleInput.trim())) {
 			sendMessage(out, Utility.DISCONNECT_CLIENT, Utility.CLIENT_STOPPED, true);
+			this.quit = true;
 			return;
 		}
 		// Send to the server
@@ -154,25 +190,17 @@ public class Client {
 
 	
 	public static void main(String[] args) throws InterruptedException {
-		//TODO: read from file
-		//InputStream source = System.in;
-		//InputStream source = null;
-		File source = null;
-		try {
-			Files.createDirectories(Utility.CLIENT_SOURCE_FILE.getParent());
-		} catch (IOException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		}
-		source = new File(Utility.CLIENT_SOURCE_FILE.toString());
+		InputStream source = System.in;
+//		File source = null;
+//		source = new File(Utility.CLIENT_SOURCE_FILE.toString());
 		try (Socket socket = new Socket(Utility.SERVER_NAME, Utility.SERVER_PORT);
-				//BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream())); // 4etem ot tuk
 				PrintWriter out = new PrintWriter(socket.getOutputStream()); // pi6em tuk
-				//File file = new File("source.txt"); TODO
 				Scanner console = new Scanner(source);
 				){
 			//Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console);
 			Client ec = new Client(Utility.SERVER_NAME, Utility.SERVER_PORT, socket, out, console, true);
+			System.out.println("Client " + socket + " connected to server");
+
 			ec.start();
 		} catch (UnknownHostException e) {
 			// TODO Auto-generated catch block
