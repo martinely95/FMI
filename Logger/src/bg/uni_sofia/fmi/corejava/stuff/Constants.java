@@ -9,7 +9,7 @@ public class Constants {
 	 */
 	public static final int SERVER_PORT = 10514;
 	public static final String LOCALHOST = "localhost";
-	public static final String SERVER_NAME = "192.168.0.100";
+	public static final String SERVER_NAME = "localhost";
 	
 	public static final String NEW_LINE = "\n";
 	public static final String SHUT_DOWN_SERVER = "shut down";

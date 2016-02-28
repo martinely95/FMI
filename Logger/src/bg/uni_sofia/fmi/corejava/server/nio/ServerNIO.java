@@ -57,7 +57,7 @@ public class ServerNIO implements AutoCloseable {
 	}
 
 	private void start() throws IOException {
-		while (this.shutDown != true) {
+		while (!this.shutDown) {
 			int num = selector.select();
 			
 			if (num == 0) {
